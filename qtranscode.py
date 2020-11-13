@@ -22,6 +22,7 @@
 #
 #
 
+
 import re
 import os
 import sys
@@ -40,10 +41,12 @@ import multiprocessing
 PROGRAM_NAME = 'qtranscode'
 
 
+
 class AVExtractor:
 	CHAPTERS_TIME_RE = re.compile( r'^CHAPTER(\d+)=(\d\d):(\d\d):(\d\d)\.(\d\d\d)$' )
 	CHAPTERS_TITLE_1_RE = re.compile( r'^CHAPTER(\d+)NAME=Chapter (\d+)$' )
 	CHAPTERS_TITLE_2_RE = re.compile( r'^CHAPTER(\d+)NAME=(.*)$' )
+
 
 	def __init__( self, path, disc_type=None, disc_title=1, chap_start=None, chap_end=None, maid=None, msid=None ):
 		self.path = os.path.abspath( path )
@@ -126,6 +129,7 @@ class AVExtractor:
 			self.attachment_cnt = 0
 			self.has_subtitles = False
 
+
 	def extract_chapters( self, filename ):
 		if self.is_matroska:
 			chapters = subprocess.check_output( ( 'mkvextract', 'chapters', self.path, '--simple' ), stderr=subprocess.DEVNULL ).decode()
@@ -165,6 +169,7 @@ class AVExtractor:
 		with open( filename, 'w' ) as f:
 			f.write( new_chapters )
 
+
 	def extract_attachments( self, directory ):
 		assert self.is_matroska
 		os.mkdir( directory )
@@ -172,6 +177,7 @@ class AVExtractor:
 		os.chdir( directory )
 		subprocess.check_call( ( 'mkvextract', 'attachments', self.path ) + tuple( map( str, range( 1, self.attachment_cnt + 1 ) ) ), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
 		os.chdir( cwd )
+
 
 	def extract_subtitles( self, filename ):
 		if self.has_subtitles and self.is_matroska:
@@ -181,12 +187,14 @@ class AVExtractor:
 		else:
 			raise Exception( 'Cannot extract subtitles (no subtitles)!' )
 
+
 	def extract_audio( self, filename ):
 		assert self.chap_start is None and self.chap_end is None
 		if self.is_matroska:
 			subprocess.check_call( ( 'mkvextract', 'tracks', self.path, re.search( r'^Track ID (\d+): audio \((.+)\)', self.__mkvmerge_probe_out, re.M ).group( 1 ) + ':' + filename ), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
 		else:
 			subprocess.check_call( ( 'mplayer', '-dumpaudio', '-dumpfile', filename ) + self.__mplayer_input_args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
+
 
 	def decode_audio( self ):
 		# TODO Expand this to other formats
@@ -195,6 +203,7 @@ class AVExtractor:
 			return ( 'mkvextract', '--redirect-output', '/dev/stderr', 'tracks', self.path, re.search( r'^Track ID (\d+): audio \((.+)\)', self.__mkvmerge_probe_out, re.M ).group( 1 ) + ':/dev/stdout' )
 		else:
 			return ( 'mplayer', '-quiet', '-really-quiet', '-nocorrect-pts', '-vc', 'null', '-vo', 'null', '-channels', str( self.audio_channels ), '-ao', 'pcm:fast:waveheader:file=/dev/stdout' ) + self.__mplayer_input_args
+
 
 	def get_decode_video_command( self, denoise=False, pp=False, scale=None, crop=None, deint=False, ivtc=False, force_rate=None, hardsub=False ):
 		filters = 'format=i420'
@@ -228,9 +237,11 @@ class AVExtractor:
 		return ( 'mencoder', '-quiet', '-really-quiet', '-sws', '9', '-vf', filters ) + ofps + ( '-ovc', 'raw', '-of', 'rawvideo', '-o', '-' ) + self.__mplayer_input_args + ( '-nosound', ) + hardsub_opt
 
 
+
 #
 # Audio encoders
 #
+
 
 def get_encode_aac_command( out_path, quality=None, bitrate=None ):
 	assert not ( quality is not None and bitrate is not None )
@@ -245,7 +256,7 @@ def get_encode_aac_command( out_path, quality=None, bitrate=None ):
 		return ( 'fdkaac', '--ignorelength' ) + qual_args + ( '-o', out_path, '-' )
 	elif shutil.which( 'neroAacEnc' ):
 		if quality is not None:
-			qual_args = ( '-q', str( quality / 10.0 ) )
+			qual_args = ( '-q', str( round( quality / 10.0 ) ) )
 		elif bitrate is not None:
 			qual_args = ( '-br', str( bitrate ) )
 		return ( 'neroAacEnc', '-ignorelength' ) + qual_args + ( '-if', '-', '-of', out_path )
@@ -258,17 +269,20 @@ def get_encode_aac_command( out_path, quality=None, bitrate=None ):
 	else:
 		raise Exception( 'No AAC encoder!' )
 
+
 def get_encode_flac_command( out_path ):
 	return ( 'flac', '--ignore-chunk-sizes', '-o', out_path, '-' )
+
 
 def get_encode_mp3_command( out_path, bitrate=None, quality=None ):
 	assert not ( quality is not None and bitrate is not None )
 	qual_args = ( )
 	if quality is not None:
-		qual_args = ( '-V', str( 10.0 - quality ) )
+		qual_args = ( '-V', str( round( 10.0 - quality ) ) )
 	elif bitrate is not None:
 		qual_args = ( '-b', str( bitrate ) )
 	return ( 'lame', ) + qual_args + ( '-', out_path )
+
 
 def get_encode_opus_command( out_path, quality=None, bitrate=None ):
 	if bitrate is not None:
@@ -280,6 +294,7 @@ def get_encode_opus_command( out_path, quality=None, bitrate=None ):
 		qual_args = ( '--vbr', )
 	return ( 'opusenc', '--ignorelength', '--discard-comments' ) + qual_args + ( '-', out_path )
 
+
 def get_encode_vorbis_command( out_path, quality=None, bitrate=None ):
 	assert not ( quality is not None and bitrate is not None )
 	qual_args = ( )
@@ -290,12 +305,14 @@ def get_encode_vorbis_command( out_path, quality=None, bitrate=None ):
 	return ( 'oggenc', '--ignorelength', '--discard-comments' ) + qual_args + ( '-o', out_path, '-' )
 
 
+
 #
 # Video encoders
 #
 
+
 def get_encode_av1_command( out_path, dimensions, framerate, quality=None, bitrate=None, speed=None, cur_pass=None, stat_path=None ):
-	#assert not ( ( cur_pass is not None ) and ( stat_path is not None ) )
+	assert not ( ( cur_pass is not None ) and ( stat_path is not None ) )
 	assert ( cur_pass is None ) or ( cur_pass == 1 ) or ( cur_pass == 2 )
 
 	qual_args = ( )
@@ -313,13 +330,14 @@ def get_encode_av1_command( out_path, dimensions, framerate, quality=None, bitra
 	return ( 'SvtAv1EncApp', '-i', 'stdin', '-w', str( dimensions[0] ), '-h', str( dimensions[1] ), '--fps-num', str( framerate.numerator ), '--fps-denom', str( framerate.denominator ), '--preset', str( speed ) ) + qual_args + pass_args
 	#return ( 'aomenc', '--threads=' + str( multiprocessing.cpu_count() ) ) + pass_args + ( '--ivf', '--yv12', '--width=' + str( dimensions[0] ), '--height=' + str( dimensions[1] ), '--fps=' + str( framerate.numerator ) + '/' + str( framerate.denominator ) ) + qual_args + ( '-', )
 
+
 def get_encode_h264_command( out_path, dimensions, framerate, sar, quality=None, bitrate=None, speed=None, cur_pass=None, stat_path=None ):
-	#assert not ( ( cur_pass is not None ) and ( stat_path is not None ) )
+	assert not ( ( cur_pass is not None ) and ( stat_path is not None ) )
 	assert ( cur_pass is None ) or ( cur_pass == 1 ) or ( cur_pass == 2 )
 
 	qual_args = ( )
 	if quality is not None:
-		qual_args = ( '--crf', str( 51.0 - quality * 5.1 ) )
+		qual_args = ( '--crf', str( round( 51.0 - quality * 5.1 ) ) )
 	elif bitrate is not None:
 		qual_args = ( '--bitrate', str( bitrate ) )
 
@@ -331,8 +349,9 @@ def get_encode_h264_command( out_path, dimensions, framerate, sar, quality=None,
 
 	return ( 'x264', '--profile', 'high', '--level', '4.2', '--bluray-compat', '--muxer', 'raw', '--demuxer', 'raw', '--input-csp', 'i420', '--input-res', str( dimensions[0] ) + 'x' + str( dimensions[1] ), '--sar', str( sar.numerator ) + ':' + str( sar.denominator ), '--fps', str( framerate.numerator ) + '/' + str( framerate.denominator ), '-' ) + qual_args + pass_args
 
+
 def get_encode_vp9_command( out_path, dimensions, framerate, quality=None, bitrate=None, speed=None, cur_pass=None, stat_path=None ):
-	#assert not ( ( cur_pass is not None ) and ( stat_path is not None ) )
+	assert not ( ( cur_pass is not None ) and ( stat_path is not None ) )
 	assert ( cur_pass is None ) or ( cur_pass == 1 ) or ( cur_pass == 2 )
 
 	qual_args = ( )
@@ -348,8 +367,13 @@ def get_encode_vp9_command( out_path, dimensions, framerate, quality=None, bitra
 	if bitrate is not None:
 		qual_args = ( '--target-bitrate=' + str( bitrate ), )
 
-	assert cur_pass is None or cur_pass == 1 or cur_pass == 2
-	assert ( cur_pass is None and stat_path is None ) or ( cur_pass is not None and stat_path is not None )
+	speed_args = ( )
+	if speed == 0:
+		speed_args = ( "--best", )
+	elif speed == 1:
+		speed_args = ( "--good", )
+	elif speed == 2:
+		speed_args = ( "--rt" , )
 
 	pass_args = ( '--output=' + out_path, '--passes=1' )
 	if cur_pass == 1:
@@ -357,10 +381,11 @@ def get_encode_vp9_command( out_path, dimensions, framerate, quality=None, bitra
 	elif cur_pass == 2:
 		pass_args = ( '--output=' + out_path, '--passes=2', '--pass=2', '--fpf=' + stat_path, '--auto-alt-ref=1' )
 
-	return ( 'vpxenc', '--codec=vp9', '--threads=' + str( multiprocessing.cpu_count() ) ) + pass_args + ( '--ivf', '--width=' + str( dimensions[0] ), '--height=' + str( dimensions[1] ), '--fps=' + str( framerate.numerator ) + '/' + str( framerate.denominator ) ) + qual_args + ( '-', )
+	return ( 'vpxenc', '--codec=vp9', '--threads=' + str( multiprocessing.cpu_count() ) ) + pass_args + ( '--ivf', '--width=' + str( dimensions[0] ), '--height=' + str( dimensions[1] ), '--fps=' + str( framerate.numerator ) + '/' + str( framerate.denominator ) ) + qual_args + speed_args + ( '-', )
+
 
 def get_encode_vp8_command( out_path, dimensions, framerate, quality=None, bitrate=None, speed=None, cur_pass=None, stat_path=None ):
-	#assert not ( ( cur_pass is not None ) and ( stat_path is not None ) )
+	assert not ( ( cur_pass is not None ) and ( stat_path is not None ) )
 	assert ( cur_pass is None ) or ( cur_pass == 1 ) or ( cur_pass == 2 )
 
 	if quality is not None and bitrate is not None:
@@ -377,8 +402,13 @@ def get_encode_vp8_command( out_path, dimensions, framerate, quality=None, bitra
 	if bitrate is not None:
 		qual_args += ( '--target-bitrate=' + str( bitrate ), )
 
-	assert cur_pass is None or cur_pass == 1 or cur_pass == 2
-	assert ( cur_pass is None and stat_path is None ) or ( cur_pass is not None and stat_path is not None )
+	speed_args = ( )
+	if speed == 0:
+		speed_args = ( "--best", )
+	elif speed == 1:
+		speed_args = ( "--good", )
+	elif speed == 2:
+		speed_args = ( "--rt" , )
 
 	pass_args = ( '--output=' + out_path, '--passes=1' )
 	if cur_pass == 1:
@@ -386,12 +416,14 @@ def get_encode_vp8_command( out_path, dimensions, framerate, quality=None, bitra
 	elif cur_pass == 2:
 		pass_args = ( '--output=' + out_path, '--passes=2', '--pass=2', '--fpf=' + stat_path, '--auto-alt-ref=1' )
 
-	return ( 'vpxenc', '--codec=vp8', '--threads=' + str( multiprocessing.cpu_count() ) ) + pass_args + ( '--ivf', '--width=' + str( dimensions[0] ), '--height=' + str( dimensions[1] ), '--fps=' + str( framerate.numerator ) + '/' + str( framerate.denominator ) ) + qual_args + ( '-', )
+	return ( 'vpxenc', '--codec=vp8', '--threads=' + str( multiprocessing.cpu_count() ) ) + pass_args + ( '--ivf', '--width=' + str( dimensions[0] ), '--height=' + str( dimensions[1] ), '--fps=' + str( framerate.numerator ) + '/' + str( framerate.denominator ) ) + qual_args + speed_args + ( '-', )
+
 
 
 #
 # Multiplexers
 #
+
 
 def mux_matroska_mkv( out_path, title, chapters, attachments, vid_file, vid_aspect, vid_pixaspect, vid_displaysize, aud_file, sub_file, vid_lang=None, aud_lang=None, sub_lang=None ):
 	cmd = ( 'mkvmerge', )
@@ -421,6 +453,7 @@ def mux_matroska_mkv( out_path, title, chapters, attachments, vid_file, vid_aspe
 		cmd += ( sub_file, )
 	subprocess.check_call( cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
 
+
 def mux_mp4( out_path, chapters, vid_file, vid_pixaspect, aud_file, vid_lang=None, aud_lang=None ):
 	cmd = ( 'MP4Box', )
 
@@ -444,6 +477,7 @@ def mux_mp4( out_path, chapters, vid_file, vid_pixaspect, aud_file, vid_lang=Non
 	subprocess.check_call( cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
 
 
+
 def transcode( dec_cmd, enc_cmd ):
 	dec_proc = subprocess.Popen( dec_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL )
 	enc_proc = subprocess.Popen( enc_cmd, stdin=dec_proc.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL )
@@ -454,10 +488,13 @@ def transcode( dec_cmd, enc_cmd ):
 		raise Exception( 'Error occurred in encoding process!' )
 
 
+
 def main( argv=None ):
 	process_start_time = time.time()
 
+	#
 	# Parse command line
+	#
 	command_line_parser = argparse.ArgumentParser( description='convert audio/video format' )
 	command_line_parser.add_argument( 'input', help='input video file', metavar='FILE' )
 	command_line_parser.add_argument( '-M', '--mplayer-aid', type=int, help='set audio track (in MPlayer aid)', metavar='INT' )
@@ -476,14 +513,14 @@ def main( argv=None ):
 	command_line_audio_group = command_line_parser.add_argument_group( 'audio' )
 	command_line_audio_group.add_argument( '-a', '--audio-codec', default='opus', type=str, choices=( 'aac', 'flac', 'mp3', 'opus', 'vorbis', 'copy' ), help='audio codec' )
 	command_line_audio_mode_group = command_line_audio_group.add_mutually_exclusive_group()
-	command_line_audio_mode_group.add_argument( '-q', '--audio-quality', type=int, help='set output audio quality', metavar='INT' )
+	command_line_audio_mode_group.add_argument( '-q', '--audio-quality', type=float, help='set output audio quality', metavar='INT' )
 	command_line_audio_mode_group.add_argument( '-b', '--audio-bitrate', type=int, help='set output audio bitrate', metavar='INT' )
 
 	command_line_video_group = command_line_parser.add_argument_group( 'video' )
 	command_line_video_group.add_argument( '-v', '--video-codec', default='av1', type=str, choices=( 'av1', 'h264', 'hevc', 'vp9', 'vp8', 'copy' ), help='video codec' )
 	command_line_video_mode_group = command_line_video_group.add_mutually_exclusive_group()
-	command_line_video_mode_group.add_argument( '-Q', '--video-quality', type=int, help='set output video quality', metavar='INT' )
-	command_line_video_mode_group.add_argument( '-B', '--video-bitrate', type=int, help='set output video bitrate', metavar='INT' )
+	command_line_video_mode_group.add_argument( '-Q', '--video-quality', type=float, help='set output video quality', metavar='INT' )
+	command_line_video_mode_group.add_argument( '-B', '--video-bitrate', type=float, help='set output video bitrate', metavar='INT' )
 	command_line_video_group.add_argument( '-r', '--encoder-speed', default=3, type=int, help='set video encoder speed (0..8); 0 is slower', metavar='INT' )
 	command_line_video_group.add_argument( '-2', "--two-pass", action='store_true', help="use two-pass encoding" )
 
@@ -523,6 +560,7 @@ def main( argv=None ):
 	else:
 		command_line = command_line_parser.parse_args( argv )
 
+
 	# Verify command line sanity
 	if command_line.bluray:
 		if command_line.size is None:
@@ -531,26 +569,31 @@ def main( argv=None ):
 		if command_line.rate is None:
 			print( 'ERROR: You must manually input the frame rate of the input for Blu-ray sources!' )
 			return 1
-	
-	(output_prefix, output_suffix) = os.path.splitext( command_line.output )
-	if output_suffix.upper() not in ( '.MKV', '.WEBM', '.MP4' ):
-		print( 'ERROR: Output suffix must be .mkv or .webm or .mp4!' )
-		return 1
+
+
+	# Determine output container
+	output = command_line.output
+	( output_prefix, output_suffix ) = os.path.splitext( output )
 	if command_line.container == '.mkv':
 		output = output_prefix + '.mkv'
-		container ='mkv'
+		out_container ='mkv'
 	elif command_line.container == '.webm':
 		output = output_prefix + '.webm'
-		container = 'webm'
+		out_container = 'webm'
 	elif command_line.container == '.mp4':
 		output = output_prefix + '.mp4'
-		container = 'mp4'
+		out_container = 'mp4'
 	else:
-		container = output_prefix[1:]
+		if output_suffix.lower() not in ( '.mkv', '.webm', '.mp4' ):
+			print( 'ERROR: Output container type indeterminable!' )
+			return 1
+		out_container = output_suffix[1:].lower()
+
 
 	# Reduce priority
 	if not command_line.no_nice:
 		os.nice( 10 )
+
 
 	# Process
 	print( '==> Processing', os.path.basename( command_line.input ), '...' )
@@ -567,82 +610,95 @@ def main( argv=None ):
 	else:
 		msid = command_line.mplayer_sid
 
+
 	extractor = AVExtractor( command_line.input, disc_type, command_line.disc_title, command_line.start_chapter, command_line.end_chapter, command_line.mplayer_aid, msid )
+
 
 	with tempfile.TemporaryDirectory( prefix=PROGRAM_NAME+'-' ) as work_dir:
 		print( '==> Created work directory:', work_dir, '...' )
 
+
 		# Chapters
+		chapters_path = None
 		if extractor.has_chapters and not command_line.no_chapters:
-			if output_suffix == '.WEBM':
+			if out_container == 'webm':
 				print( 'WARNING: Chapters present! This is not supported in WebM container!' )
-				chapters_path = None
-			else:
+			elif out_container == 'mkv' or out_container == 'mp4':
 				print( '==> Extracting chapters ...', end=str(), flush=True )
 				chapters_path = os.path.join( work_dir, 'chapters' )
 				extractor.extract_chapters( chapters_path )
 				print( ' done.', flush=True )
-		else:
-			chapters_path = None
+			else:
+				assert 0
+
 
 		# Attachments
+		attachments_path = None
 		if extractor.attachment_cnt > 0 and not command_line.no_attachments:
-			if output_suffix == '.WEBM':
+			if out_container == 'webm':
 				print( 'WARNING: Attachments present! This is not supported in WebM container!' )
-				attachments_path = None
-			elif output_suffix == '.MP4':
+			elif out_container == 'mp4':
 				print( 'WARNING: Attachments present! This is not supported in MP4 container!' )
-				attachments_path = None
-			else:
+			elif out_container == 'mkv':
 				print( '==> Extracting', extractor.attachment_cnt, 'attachment(s) ...', end=str(), flush=True )
 				attachments_path = os.path.join( work_dir, 'attachments' )
 				extractor.extract_attachments( attachments_path )
 				print( ' done.', flush=True )
-		else:
-			attachments_path = None
+			else:
+				assert 0
+
 
 		# Subtitles
+		subtitles_path = None
 		if extractor.has_subtitles and not command_line.no_subtitles and not command_line.hardsub:
-			if output_suffix == '.WEBM':
+			if out_container == 'webm':
 				print( 'WARNING: Subtitles present! This is not supported in WebM container!' )
-				subtitles_path = None
-			elif output_suffix == '.MP4':
+			elif out_container == 'mp4':
 				print( 'WARNING: Subtitles present! This is not supported in MP4 container!' )
-				subtitles_path = None
-			else:
+			elif out_container == 'mkv':
 				print( '==> Extracting subtitles ...', end=str(), flush=True )
 				subtitles_path = os.path.join( work_dir, 'subtitles' )
 				extractor.extract_subtitles( subtitles_path )
 				if command_line.dvd:
 					subtitles_path += '.idx'
 				print( ' done.', flush=True )
-		else:
-			subtitles_path = None
+			else:
+				assert 0
+
 
 		# Audio
 		if command_line.audio_codec == 'aac':
 			print( '==> Transcoding audio to AAC format ...', end=str(), flush=True )
 			audio_path = os.path.join( work_dir, 'audio.mp4' )
 			enc_cmd = get_encode_aac_command( audio_path, command_line.audio_quality, command_line.audio_bitrate )
+
 		elif command_line.audio_codec == 'flac':
 			print( '==> Transcoding audio to FLAC format ...', end=str(), flush=True )
 			audio_path = os.path.join( work_dir, 'audio.flac' )
 			enc_cmd = get_encode_flac_command( audio_path )
+
 		elif command_line.audio_codec == 'opus':
 			print( '==> Transcoding audio to Opus format ...', end=str(), flush=True )
 			audio_path = os.path.join( work_dir, 'audio.opus' )
 			enc_cmd = get_encode_opus_command( audio_path, command_line.audio_quality, command_line.audio_bitrate )
+
 		elif command_line.audio_codec == 'vorbis':
 			print( '==> Transcoding audio to Vorbis format ...', end=str(), flush=True )
 			audio_path = os.path.join( work_dir, 'audio.ogg' )
 			enc_cmd = get_encode_vorbis_command( audio_path, command_line.audio_quality, command_line.audio_bitrate )
+
 		elif command_line.audio_codec == 'mp3':
 			print( '==> Transcoding audio to MP3 format ...', end=str(), flush=True )
 			audio_path = os.path.join( work_dir, 'audio.mp3' )
 			enc_cmd = get_encode_mp3_command( audio_path, command_line.audio_quality, command_line.audio_bitrate )
+
+		else:
+			assert 0
+
 		if command_line.audio_codec != 'copy':
 			transcode( extractor.decode_audio(), enc_cmd )
 			print( ' done.', flush=True )
+
 		else:
 			if extractor.chap_start or extractor.chap_end:
 				print( 'Cannot copy audio due to chapter slicing.' )
@@ -653,7 +709,9 @@ def main( argv=None ):
 			print( ' done.', flush=True )
 
 
+		#
 		# Final dimension and frame rate calculations
+		#
 		if command_line.scale is not None:
 			final_dimensions = command_line.scale
 		elif command_line.crop is not None:
@@ -662,23 +720,28 @@ def main( argv=None ):
 			final_dimensions = command_line.size
 		else:
 			final_dimensions = extractor.video_dimensions
+
 		if command_line.display_aspect is not None:
 			sar = fractions.Fraction( *command_line.display_aspect ) / fractions.Fraction( *final_dimensions )
 		elif command_line.pixel_aspect is not None:
 			sar = fractions.Fraction( *command_line.pixel_aspect )
 		else:
 			sar = fractions.Fraction( 1, 1 )
+
 		if command_line.ivtc:
 			final_rate = fractions.Fraction( 24000, 1001 )
 		elif command_line.rate is not None:
 			final_rate = fractions.Fraction( *command_line.rate )
 		else:
 			final_rate = extractor.video_framerate
+		
 		if command_line.deinterlace:
 			final_rate *= 2
 
 
+		#
 		# Transcode video
+		#
 		dec_cmd = extractor.get_decode_video_command( command_line.denoise, command_line.post_process, command_line.scale, command_line.crop, command_line.deinterlace, command_line.ivtc, command_line.rate, command_line.hardsub )
 		if command_line.video_codec == 'av1':
 			video_path = os.path.join( work_dir, 'video.ivf' )
@@ -696,6 +759,7 @@ def main( argv=None ):
 				stat_path = os.path.join( work_dir, 'av1_stats' )
 				transcode( dec_cmd, get_encode_av1_command( video_path, final_dimensions, final_rate, command_line.video_quality, command_line.video_bitrate, command_line.encoder_speed, 2, stat_path ) )
 				print( ' done.', flush=True )
+
 		elif command_line.video_codec == 'h264':
 			video_path = os.path.join( work_dir, 'video.264' )
 			if not command_line.two_pass:
@@ -712,6 +776,7 @@ def main( argv=None ):
 				stat_path = os.path.join( work_dir, 'x264_stats' )
 				transcode( dec_cmd, get_encode_h264_command( video_path, final_dimensions, final_rate, sar, command_line.video_quality, command_line.video_bitrate, command_line.encoder_speed, 2, stat_path ) )
 				print( ' done.', flush=True )
+
 		elif command_line.video_codec == 'vp9':
 			video_path = os.path.join( work_dir, 'video.ivf' )
 			if not command_line.two_pass:
@@ -728,6 +793,7 @@ def main( argv=None ):
 				stat_path = os.path.join( work_dir, 'vp9_stats' )
 				transcode( dec_cmd, get_encode_vp9_command( video_path, final_dimensions, final_rate, command_line.video_quality, command_line.video_bitrate, command_line.encoder_speed, 2, stat_path ) )
 				print( ' done.', flush=True )
+
 		elif command_line.video_codec == 'vp8':
 			video_path = os.path.join( work_dir, 'video.ivf' )
 			if not command_line.two_pass:
@@ -744,8 +810,10 @@ def main( argv=None ):
 				stat_path = os.path.join( work_dir, 'vp8_stats' )
 				transcode( dec_cmd, get_encode_vp8_command( video_path, final_dimensions, final_rate, command_line.video_quality, command_line.video_bitrate, command_line.encoder_speed, 2, stat_path ) )
 				print( ' done.', flush=True )
+
 		else:
 			assert 0
+
 
 		# Mux
 		print( '==> Multiplexing ...', end=str(), flush=True )
