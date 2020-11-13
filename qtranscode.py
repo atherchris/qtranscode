@@ -817,9 +817,9 @@ def main( argv=None ):
 
 		# Mux
 		print( '==> Multiplexing ...', end=str(), flush=True )
-		if container == 'mkv' or container == 'webm':
+		if out_container == 'mkv' or out_container == 'webm':
 			mux_matroska_mkv( output, command_line.title, chapters_path, attachments_path, video_path, command_line.display_aspect, command_line.pixel_aspect, command_line.display_size, audio_path, subtitles_path, command_line.video_language, command_line.audio_language, command_line.subtitles_language )
-		elif container == 'mp4':
+		elif out_container == 'mp4':
 			mux_mp4( output, chapters_path, video_path, command_line.pixel_aspect, audio_path, command_line.video_language, command_line.audio_language )
 		else:
 			assert 0
