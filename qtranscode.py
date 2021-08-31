@@ -198,11 +198,12 @@ class AVExtractor:
 
 	def decode_audio( self ):
 		# TODO Expand this to other formats
-		if self.is_matroska and self.chap_start is None and self.chap_end is None and self.audio_codec == 'ffflac':
-			# Matroska with FLAC audio
-			return ( 'mkvextract', '--redirect-output', '/dev/stderr', 'tracks', self.path, re.search( r'^Track ID (\d+): audio \((.+)\)', self.__mkvmerge_probe_out, re.M ).group( 1 ) + ':/dev/stdout' )
-		else:
-			return ( 'mplayer', '-quiet', '-really-quiet', '-nocorrect-pts', '-vc', 'null', '-vo', 'null', '-channels', str( self.audio_channels ), '-ao', 'pcm:fast:waveheader:file=/dev/stdout' ) + self.__mplayer_input_args
+		#if self.is_matroska and self.chap_start is None and self.chap_end is None and self.audio_codec == 'ffflac':
+		#	# Matroska with FLAC audio
+		#	return ( 'mkvextract', '--redirect-output', '/dev/stderr', 'tracks', self.path, re.search( r'^Track ID (\d+): audio \((.+)\)', self.__mkvmerge_probe_out, re.M ).group( 1 ) + ':/dev/stdout' )
+		#else:
+		#	return ( 'mplayer', '-quiet', '-really-quiet', '-nocorrect-pts', '-vc', 'null', '-vo', 'null', '-channels', str( self.audio_channels ), '-ao', 'pcm:fast:waveheader:file=/dev/stdout' ) + self.__mplayer_input_args
+		return ( 'mplayer', '-quiet', '-really-quiet', '-nocorrect-pts', '-vc', 'null', '-vo', 'null', '-channels', str( self.audio_channels ), '-ao', 'pcm:fast:waveheader:file=/dev/stdout' ) + self.__mplayer_input_args
 
 
 	def get_decode_video_command( self, denoise=False, pp=False, scale=None, crop=None, deint=False, ivtc=False, force_rate=None, hardsub=False ):
@@ -517,7 +518,7 @@ def main( argv=None ):
 	command_line_audio_mode_group.add_argument( '-b', '--audio-bitrate', type=int, help='set output audio bitrate', metavar='INT' )
 
 	command_line_video_group = command_line_parser.add_argument_group( 'video' )
-	command_line_video_group.add_argument( '-v', '--video-codec', default='av1', type=str, choices=( 'av1', 'h264', 'hevc', 'vp9', 'vp8', 'copy' ), help='video codec' )
+	command_line_video_group.add_argument( '-v', '--video-codec', default='av1', type=str, choices=( 'av1', 'hevc', 'h264', 'vp9', 'vp8', 'copy' ), help='video codec' )
 	command_line_video_mode_group = command_line_video_group.add_mutually_exclusive_group()
 	command_line_video_mode_group.add_argument( '-Q', '--video-quality', type=float, help='set output video quality', metavar='INT' )
 	command_line_video_mode_group.add_argument( '-B', '--video-bitrate', type=float, help='set output video bitrate', metavar='INT' )
@@ -553,7 +554,7 @@ def main( argv=None ):
 
 	command_line_other_group = command_line_parser.add_argument_group( 'other' )
 	command_line_other_group.add_argument( '--no-nice', action='store_true', help='do not lower process priority' )
-	command_line_other_group.add_argument( '--no-attachments', action='store_true', help='do not include attachments from Matroska source' )
+	command_line_other_group.add_argument( '-m', '--no-attachments', action='store_true', help='do not include attachments from Matroska source' )
 
 	if argv is None:
 		command_line = command_line_parser.parse_args()
@@ -760,6 +761,9 @@ def main( argv=None ):
 				transcode( dec_cmd, get_encode_av1_command( video_path, final_dimensions, final_rate, command_line.video_quality, command_line.video_bitrate, command_line.encoder_speed, 2, stat_path ) )
 				print( ' done.', flush=True )
 
+		elif command_line.video_codec == 'hevc':
+			raise Exception( 'HEVC encoding not supported yet!' )
+
 		elif command_line.video_codec == 'h264':
 			video_path = os.path.join( work_dir, 'video.264' )
 			if not command_line.two_pass:
@@ -826,7 +830,7 @@ def main( argv=None ):
 		print( ' done.', flush=True )
 
 
-	runtime = process_start_time - time.time()
+	runtime = time.time() - process_start_time
 	print( 'Done. Process took', round( runtime / 60 ), 'minutes,', round( runtime % 60 ), 'seconds.' )
 	return 0
 
